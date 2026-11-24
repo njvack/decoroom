@@ -4,17 +4,25 @@ decoroom is a static web app for sketching a room's layout: walls, doors, furnit
 
 ## Goals
 
-- Host on GitHub Pages with no backend.
-- The URL hash holds the current layout. Links stay short enough to paste into iMessage or WhatsApp without breaking.
+- Host on GitHub Pages (or another static site) with no backend.
+- The URL hash holds the current layout. Most links stay short enough to paste into iMessage or WhatsApp without breaking.
 - Version history stays in the browser, so you can step back through your own edits and see what a partner changed in a link they sent back.
 - An AI agent given a link can read the layout, render a picture of it, and write a new link, without a browser.
+- For AI-generated rooms, track what parts of the room layout are guesses and let humans measure and fill in answers
 - Everything visual is sketch quality: flat colors and SVG patterns, never photo textures.
+- Make editing intuitive
+- Be _fast,_ both in editing and viewing
+- Maybe most importantly: Be fun to use
 
-## Non-goals (for now)
+## Non-goals (forever)
 
 - Accounts, a server, or real-time collaboration.
 - Photorealistic rendering.
+
+## Possible future goals
+
 - Multiple rooms in one link. Each link is one room.
+- 3D shader that gives deliberate "sketch" effect
 
 ## Use cases
 
@@ -97,7 +105,7 @@ An item can be anchored to up to two walls. Each anchor says "this edge of the p
 
 A sketch is a tiny SVG drawing that travels in the URL: a viewBox size `w`×`h`, a palette of up to 8 colors, and a list of `[paletteIndex, pathData]` pairs. Coordinates are integers. A sketch can fill a piece of wall art (stretched to fit) or be tiled as a pattern on a wall, floor or item.
 
-- **Budget:** about 1,500 characters of path data per sketch and 3,000 per plan. The editor shows a meter and refuses imports over budget.
+- **Budget:** about 1,500 characters of path data per sketch and 3,000 per plan. The editor shows a meter and warns if you're over budget.
 - **Ways to make one:**
   - From a photo: downsample, reduce to a small palette, and merge same-color runs into rectangle paths. The result is a mosaic.
   - From pasted SVG: keep path, rect, circle, ellipse and polygon. Flatten, simplify, quantize to integers and reduce the palette.

@@ -199,7 +199,7 @@ Each milestone is a GitHub issue. Milestones 1 through 3 plus 9 and 11 are enoug
 
 ## Open questions
 
-- Should the display default to feet and inches with a metric toggle, or follow the browser's locale?
-- Should rooms carry a default ceiling height of 8′, editable per room? (Planned: yes.)
-- Is 2 seconds the right settle delay?
-- Should the fireplace room from the artifact ship as a built-in example link?
+- Should the display default to feet and inches with a metric toggle, or follow the browser's locale? (Answer: Default is locale, always toggleable, data stored as part of the hash)
+- Should rooms carry a default ceiling height of 8′, editable per room? (Answer: Yes.)
+- Is 2 seconds the right settle delay? (Answer: Make it easy to change.)
+- Should the fireplace room from the artifact ship as a built-in example link? (Answer: Sure.)

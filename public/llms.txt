@@ -1,0 +1,124 @@
+# decoroom
+
+> decoroom is a static web app for sketching a room's furniture layout. The whole room lives in the URL fragment, so a link is the file. This document tells AI agents and scripts how to read, render and write decoroom links.
+
+Fetching a decoroom link only returns the app's static HTML: the fragment (everything after `#`) never reaches the server. Read the room from the link text itself.
+
+## Quick start (Node 18+, nothing to install)
+
+```sh
+curl -sO https://njvack.github.io/decoroom/decoroom.mjs
+node decoroom.mjs describe 'LINK'              # text summary: walls, features, pieces, anchors, open floor, estimates
+node decoroom.mjs render 'LINK' -o plan.png    # top-down image (PNG or SVG by extension); --dark, --width 1400
+node decoroom.mjs render 'LINK' -o wall.png --view wall:0     # elevation of one wall, by index or name
+node decoroom.mjs decode 'LINK' > room.json    # readable JSON (includes "id")
+node decoroom.mjs encode room.json             # JSON -> link; keeps "id" from the file, or --id ROOMID
+node decoroom.mjs diff 'OLD' 'NEW'             # what changed between two links
+node decoroom.mjs describe 'NEW' --before 'OLD'
+```
+
+Quote links in single quotes (they contain `&`). Any `LINK` argument may also be a file containing the link (or readable JSON), or `-` for stdin. PNG output downloads a WebAssembly renderer and a font from the site once, then caches them.
+
+## A good workflow for suggesting changes
+
+1. `describe` the link and `render` it to PNG to see the room.
+2. `decode` to JSON, edit the JSON, and keep the same `id`.
+3. Mark anything you guessed (from photos, say) with `"est": true`. The app draws it dashed and lists it under "To measure".
+4. `encode` and send the new link. When the person opens it, the app shows them what you changed and keeps their old version in local history.
+5. Check your link with `describe` or `render` before sending it.
+
+## URL format
+
+- `https://njvack.github.io/decoroom/#id=ROOMID&z=DATA`
+  - `ROOMID`: 3–16 letters/digits. Ties links to the same room in each person's local history.
+  - `DATA`: base64url (RFC 4648 §5, no padding) of raw DEFLATE (RFC 1951, no zlib/gzip header) of UTF-8 JSON in the packed form below.
+- `https://njvack.github.io/decoroom/#id=ROOMID&j=JSON`
+  - `JSON`: the readable form below, `encodeURIComponent`-encoded. The app accepts it and rewrites the URL to the `z` form. Write this form if you can't run the CLI.
+
+Decode `z` in Python:
+
+```python
+import base64, json, zlib
+packed = json.loads(zlib.decompress(base64.urlsafe_b64decode(z + "=" * (-len(z) % 4)), -15))
+```
+
+Decode in Node: `JSON.parse(require('zlib').inflateRawSync(Buffer.from(z, 'base64url')))`.
+
+Encode a readable plan without the CLI (Python):
+
+```python
+import json, urllib.parse
+link = "https://njvack.github.io/decoroom/#id=" + room_id + "&j=" + urllib.parse.quote(json.dumps(plan, separators=(",", ":")), safe="")
+```
+
+## Readable form (schema)
+
+All lengths are inches. Coordinates: x grows to the right, y grows down. Omit fields you don't need; defaults are shown.
+
+Plan:
+- `name` (string)
+- `units`: `"in"` or `"cm"` — display only; data is always inches. Absent = follow the viewer's locale.
+- `ceiling` (number, default 96)
+- `verts`: `[[x, y], ...]` room corners, at least 3, any simple polygon. Order is normalized to clockwise on screen.
+- `walls`: one per corner; `walls[i]` runs from `verts[i]` to `verts[i+1]` (the last wraps to the first).
+- `floor`: Paint
+- `items`: Item[]
+- `sketches`: Sketch[]
+- `notes` (string, up to 2000 chars)
+
+Wall: `name`, `paint`, `features` (Feature[]), `est` (length is a guess).
+
+Feature (something on a wall):
+- `kind`: `door` | `opening` | `slider` | `window` | `fireplace` | `art`
+- `at`: distance from the wall's start corner (`verts[i]`) to the feature's near side; `w`: width along the wall
+- `label` (string), `est` (bool)
+- `h`: height (defaults: door/slider 80, opening 84, window 48, fireplace surround 44, art 24)
+- `y`: bottom edge above the floor (window sill default 32, art default 54)
+- `depth`: fireplace hearth depth into the room
+- `hinge`: `start` (default) or `end` — which side of the door is hinged, by wall direction
+- `swing`: `in` (default, into this room) or `out`
+- `paint`: Paint (art, doors)
+
+Item:
+- `id`: short stable id (letters, digits, `-`, `_`; up to 12). Keep ids when editing so diffs match pieces.
+- `name` (string)
+- `type`: `box` (default) | `seat` | `table` | `storage` | `bed` | `rug` | `lamp` | `plant`. Sets the default color, height and 3D shape.
+- `shape`: `rect` (default) | `round` | `L` (sectional; `seatDepth`, `chaiseWidth`, `chaiseSide`: `right` default or `left`)
+- `w`: width along the piece's back; `d`: depth front to back; `h`: height (default by type: seat 32, table 17, storage 36, bed 24, rug 0.5, lamp 60, plant 36, box 24)
+- `x`, `y`: center
+- `rot`: degrees clockwise. At 0 the piece's back faces −y (toward the top of the plan); at 90 it faces +x; at 180, +y; at 270, −x.
+- `anchors`: up to 2 of `{"wall": index, "edge": "near"|"center"|"far", "dist": inches}`. "The piece's near (closest) edge / center / far edge is `dist` inches from that wall, measured straight out from the wall." Anchors override `x`/`y`: two anchors on non-parallel walls fix the position. When a wall moves, anchored pieces follow.
+- `paint`, `est`, `radius` (corner radius)
+
+Paint: `{"color": "rrggbb", "pattern": "...", "color2": "rrggbb", "scale": 1, "angle": 0}` or `{"sketch": index, "scale": 1}`.
+Patterns: solid, stripe, check, plaid, herringbone, wood, dots, grid, tile, brick, diamond (kilim-like), chevron, terrazzo, shag, boucle, floral. Colors are hex without `#`, 3 or 6 digits.
+
+Sketch (a tiny drawing carried in the link, for wall art or a custom pattern):
+- `w`, `h`: viewBox size
+- `pal`: up to 8 hex colors
+- `paths`: `[[paletteIndex, "SVG path data"], ...]`, drawn in order. Use integer coordinates and short commands.
+- Budget: about 1,500 characters of path data per sketch and 3,000 per plan; the app warns above that. Art is stretched to its feature's size; as a pattern it tiles at `w`×`h` inches times `scale`.
+
+## Packed form (the `z` parameter)
+
+Each object is a JSON array of its fields in this order. A field equal to its default is `0`; trailing `0`s are dropped. Enums are indexes. In `paint`, `sketch` is stored as index + 1. Items with two anchors may have `x`, `y` = 0 (re-solved on load).
+
+```
+plan: [version, name, units(0=absent 1=in 2=cm), ceiling, verts(flat x,y list), walls, floor, items, sketches, notes]
+wall: [name, paint, features, est(0/1)]
+feature: [kind(0=door 1=opening 2=slider 3=window 4=fireplace 5=art), at, w, label, est(0/1), h, y, depth, hinge(0=start 1=end), swing(0=in 1=out), paint]
+item: [id, name, type(0=box 1=seat 2=table 3=storage 4=bed 5=rug 6=lamp 7=plant), shape(0=rect 1=round 2=L), w, d, h, x, y, rot, anchors, paint, est(0/1), radius, seatDepth, chaiseWidth, chaiseSide(0=right 1=left)]
+anchor: [wall, edge(0=near 1=center 2=far), dist]
+paint: [color, pattern(0=solid 1=stripe 2=check 3=plaid 4=herringbone 5=wood 6=dots 7=grid 8=tile 9=brick 10=diamond 11=chevron 12=terrazzo 13=shag 14=boucle 15=floral), color2, scale, angle, sketch(index+1)]
+sketch: [w, h, pal, paths]
+```
+
+`version` is currently 1. Newer versions append fields; they don't reorder them.
+
+## Example
+
+`https://njvack.github.io/decoroom/#id=frplc1` opens the built-in example (a fireplace room). A bare `#id=` with no data opens that room from the viewer's local history, or a built-in example. To read the example's data, run `node decoroom.mjs decode` on a full link from the README.
+
+## Source
+
+https://github.com/njvack/decoroom — MIT licensed. Plan: docs/PLAN.md.

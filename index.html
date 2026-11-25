@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>decoroom</title>
+    <meta name="description" content="Sketch a room's layout and share it as a link. AI agents: the room is in the URL fragment; see the instructions at the top of this page or llms.txt." />
+    <link rel="alternate" type="text/markdown" href="llms.txt" title="Instructions for AI agents" />
+    <link rel="help" href="llms.txt" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' fill='%23a9b59b' stroke='%2326302a' stroke-width='2'/%3E%3Crect x='4' y='4' width='5' height='3' fill='%2326302a'/%3E%3C/svg%3E" />
+    <script>document.documentElement.classList.add('js');</script>
+    <style>.js #agent-docs{display:none}</style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap" />
+  </head>
+  <body>
+    <!--
+      The section below is for AI agents and scripts that fetch this page as text.
+      The app hides it as soon as JavaScript runs, so people using the app don't see it.
+    -->
+    <section id="agent-docs">
+      <h1>decoroom — instructions for AI agents</h1>
+      <p>
+        This is the static HTML of decoroom, an app for sketching a room's furniture layout. <strong>If you were given a decoroom link, the room is stored entirely in the
+        link's fragment (the part after <code>#</code>).</strong> Browsers and fetch tools never send the fragment to the server, so this page can't show you the room. Read it from
+        the link itself, as described here.
+      </p>
+
+      <h2>Fastest way: the command-line tool (Node 18+, nothing to install)</h2>
+      <pre><code>curl -sO https://njvack.github.io/decoroom/decoroom.mjs
+node decoroom.mjs describe 'LINK'               # text summary: walls, doors, every piece, distances, open floor
+node decoroom.mjs render 'LINK' -o plan.png     # top-down picture to look at (or .svg)
+node decoroom.mjs render 'LINK' -o wall.png --view wall:2    # straight-on view of wall 2 (index or name)
+node decoroom.mjs decode 'LINK' &gt; room.json     # readable JSON you can edit
+node decoroom.mjs encode room.json              # prints a new link (keeps the room id from room.json)
+node decoroom.mjs diff 'OLD_LINK' 'NEW_LINK'    # what changed</code></pre>
+      <p>Put the link in single quotes; it contains <code>&amp;</code>. <code>LINK</code> can also be a file holding the link, or <code>-</code> for stdin.</p>
+
+      <h2>Link format</h2>
+      <ul>
+        <li><code>https://njvack.github.io/decoroom/#id=ROOMID&amp;z=DATA</code> — <code>DATA</code> is base64url (no padding) of raw DEFLATE (no zlib header) of a JSON array in a compact positional form. Python: <code>json.loads(zlib.decompress(base64.urlsafe_b64decode(z + '=' * (-len(z) % 4)), -15))</code>. The positional field order is in <a href="llms.txt">llms.txt</a>; using <code>decode</code> above is easier.</li>
+        <li><code>…/#id=ROOMID&amp;j=JSON</code> — the same room as readable JSON, URI-encoded (<code>encodeURIComponent</code>). <strong>Write links in this form</strong> if you can't run the CLI; the app accepts it and shortens it.</li>
+        <li><code>id</code> identifies the room in each person's local history. When you edit someone's room, keep their <code>id</code> so they see a "what changed" summary when they open your link.</li>
+      </ul>
+
+      <h2>Readable JSON (the <code>j=</code> form and the CLI's <code>decode</code> output)</h2>
+      <p>Lengths are inches. x grows to the right, y grows down. Omit anything you don't need.</p>
+      <pre><code>{
+  "name": "Living room", "units": "in", "ceiling": 96,
+  "verts": [[0,0],[144,0],[144,180],[0,180]],          // room corners, any polygon
+  "walls": [                                              // walls[i] runs verts[i] → verts[i+1]
+    {"name": "Window wall", "paint": {"color": "a9b59b"},
+     "features": [{"kind": "window", "at": 30, "w": 48, "y": 30, "h": 50}]},
+    {"name": "Hall side", "features": [{"kind": "door", "at": 12, "w": 32, "hinge": "end"}]},
+    {"name": "Kitchen side", "features": [{"kind": "opening", "at": 50, "w": 40, "label": "Kitchen", "est": true}]},
+    {"name": "Fireplace wall", "features": [{"kind": "fireplace", "at": 60, "w": 56, "depth": 16},
+                                            {"kind": "art", "at": 70, "w": 36, "h": 24, "y": 56, "paint": {"sketch": 0}}]}
+  ],
+  "floor": {"color": "d8c7a8", "pattern": "wood"},
+  "items": [
+    {"id": "sofa", "name": "Sofa", "type": "seat", "w": 84, "d": 36, "x": 72, "y": 20, "rot": 0,
+     "anchors": [{"wall": 0, "edge": "near", "dist": 2}], "paint": {"color": "c2683f"}},
+    {"id": "rug1", "type": "rug", "w": 96, "d": 72, "x": 72, "y": 70, "paint": {"color": "e9e2d3", "pattern": "diamond", "color2": "a8432d"}, "est": true}
+  ],
+  "sketches": [{"w": 12, "h": 8, "pal": ["e9e2d3", "c2683f"], "paths": [[0, "M0 0h12v8H0z"], [1, "M3 2h6v4H3z"]]}],
+  "notes": "Free text."
+}</code></pre>
+      <ul>
+        <li><b>Features</b> sit on a wall, <code>at</code> inches from the wall's start corner, <code>w</code> wide. Kinds: door (<code>hinge</code> start|end, <code>swing</code> in|out), opening, slider, window (<code>y</code> sill height, <code>h</code>), fireplace (<code>depth</code> = hearth depth), art (<code>y</code> bottom, <code>h</code>, <code>paint</code>).</li>
+        <li><b>Items</b>: <code>type</code> is box|seat|table|storage|bed|rug|lamp|plant; <code>shape</code> rect|round|L. <code>w</code> is along the piece's back, <code>d</code> front to back, <code>h</code> height. <code>x,y</code> is the center. <code>rot</code> is degrees clockwise; at 0 the back faces −y (the top of the plan).</li>
+        <li><b>Anchors</b> (up to 2 per item) pin a piece to walls: "this edge is <code>dist</code> inches from wall <code>wall</code>". <code>edge</code> is near (closest edge, default), center, or far. Anchors win over x/y.</li>
+        <li><b>Paint</b>: <code>{"color": "hex", "pattern": "stripe|check|plaid|herringbone|wood|dots|grid|tile|brick|diamond|chevron|terrazzo|shag|boucle|floral", "color2": "hex", "scale": 1, "angle": 0}</code>, or <code>{"sketch": index}</code> to use a sketch.</li>
+        <li><b>Sketches</b> are tiny SVG drawings carried in the link: <code>w</code>×<code>h</code> viewBox, a palette of hex colors, and <code>[paletteIndex, pathData]</code> pairs. Use integer coordinates and keep each under ~1,500 characters so links stay short.</li>
+        <li><b>est: true</b> marks a guess (drawn dashed and listed for the person to measure). Mark anything you estimated from photos this way.</li>
+      </ul>
+      <p>Full reference: <a href="llms.txt">llms.txt</a>. Source: <a href="https://github.com/njvack/decoroom">github.com/njvack/decoroom</a>.</p>
+    </section>
+
+    <div id="app"></div>
+    <noscript>decoroom needs JavaScript to edit rooms.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

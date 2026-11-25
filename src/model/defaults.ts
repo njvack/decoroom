@@ -9,7 +9,17 @@ export const TYPE_INFO: Record<ItemType, { label: string; h: number; paint: Pain
   rug: { label: 'Rug', h: 0.5, paint: { color: 'b9bdc0' } },
   lamp: { label: 'Lamp', h: 60, paint: { color: 'c9a85a' } },
   plant: { label: 'Plant', h: 36, paint: { color: '7d9a6c' } },
+  // Hangs from the ceiling; h is how far it drops below the ceiling.
+  light: { label: 'Ceiling light', h: 8, paint: { color: 'f3efe6' } },
 };
+
+/** The warm white of a lit shade. */
+export const LIGHT_GLOW = 'fff1c9';
+
+/** Pieces that hang from the ceiling, so they don't take up floor. */
+export function isOverhead(it: Item): boolean {
+  return itemType(it) === 'light';
+}
 
 export function itemType(it: Item): ItemType {
   return it.type ?? 'box';
@@ -77,6 +87,8 @@ export const PRESETS: Preset[] = [
   { name: 'Twin bed', item: { type: 'bed', w: 38, d: 75 } },
   { name: 'Floor lamp', item: { type: 'lamp', shape: 'round', w: 14, d: 14 } },
   { name: 'Plant', item: { type: 'plant', shape: 'round', w: 18, d: 18 } },
+  { name: 'Ceiling light, flush', item: { type: 'light', shape: 'round', w: 16, d: 16, h: 7 } },
+  { name: 'Ceiling light, hanging', item: { type: 'light', shape: 'round', w: 22, d: 22, h: 18 } },
   { name: 'Rug 5×8', item: { type: 'rug', w: 60, d: 96, radius: 1 } },
   { name: 'Rug 6×9', item: { type: 'rug', w: 108, d: 72, radius: 1 } },
   { name: 'Rug 8×10', item: { type: 'rug', w: 96, d: 120, radius: 1 } },

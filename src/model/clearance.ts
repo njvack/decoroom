@@ -1,3 +1,4 @@
+import { isOverhead } from './defaults';
 import { wallName } from './estimates';
 import { hearthBoxes, itemBox, rayToWalls, wallFrame, wallParam, type Box } from './geometry';
 import type { Item, Plan, Vec } from './types';
@@ -36,10 +37,13 @@ function wallTarget(plan: Plan, wall: number, p: Vec): string {
 /** Open floor around a piece in the four screen directions, to the nearest piece or wall. */
 export function clearances(plan: Plan, it: Item): Clearance[] {
   const b = itemBox(it);
-  const obstacles: (Box & { name: string })[] = [
-    ...plan.items.filter((o) => o.id !== it.id && o.type !== 'rug').map((o) => ({ ...itemBox(o), name: o.name || o.type || 'piece' })),
-    ...hearthBoxes(plan),
-  ];
+  // A ceiling light only measures to the walls; furniture is below it.
+  const obstacles: (Box & { name: string })[] = isOverhead(it)
+    ? []
+    : [
+        ...plan.items.filter((o) => o.id !== it.id && o.type !== 'rug' && !isOverhead(o)).map((o) => ({ ...itemBox(o), name: o.name || o.type || 'piece' })),
+        ...hearthBoxes(plan),
+      ];
   const out: Clearance[] = [];
   for (const { dir, v } of DIRS) {
     const horiz = v[1] === 0;

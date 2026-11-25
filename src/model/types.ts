@@ -71,7 +71,7 @@ export interface Wall {
   est?: boolean;
 }
 
-export const ITEM_TYPES = ['box', 'seat', 'table', 'storage', 'bed', 'rug', 'lamp', 'plant'] as const;
+export const ITEM_TYPES = ['box', 'seat', 'table', 'storage', 'bed', 'rug', 'lamp', 'plant', 'light'] as const;
 export type ItemType = (typeof ITEM_TYPES)[number];
 
 export const SHAPES = ['rect', 'round', 'L'] as const;

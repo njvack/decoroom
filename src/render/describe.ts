@@ -1,6 +1,6 @@
 import { anchorDistance } from '../model/anchors';
 import { clearances } from '../model/clearance';
-import { featureBottom, featureHeight, itemHeight, itemPaint, itemType } from '../model/defaults';
+import { featureBottom, featureHeight, isOverhead, itemHeight, itemPaint, itemType } from '../model/defaults';
 import { diffPlans, summarizeDiff } from '../model/diff';
 import { listEstimates, wallName } from '../model/estimates';
 import { bounds, signedArea, wallFrame } from '../model/geometry';
@@ -67,7 +67,7 @@ export function describePlan(plan: Plan, opts: { before?: Plan } = {}): string {
       const cl = clearances(plan, it)
         .map((c) => `${c.dir} ${n1(c.dist)}″ to ${c.to}`)
         .join('; ');
-      if (cl) out.push(`    open floor: ${cl}`);
+      if (cl) out.push(isOverhead(it) ? `    hangs ${n1(itemHeight(it))}″ below the ceiling; to walls: ${cl}` : `    open floor: ${cl}`);
     }
   }
   const est = listEstimates(plan);

@@ -1,6 +1,6 @@
 import { anchorDistance } from '../model/anchors';
 import { clearances } from '../model/clearance';
-import { itemPaint, itemType } from '../model/defaults';
+import { itemPaint, itemType, LIGHT_GLOW } from '../model/defaults';
 import { wallName } from '../model/estimates';
 import {
   bounds,
@@ -156,8 +156,9 @@ export function renderPlan(plan: Plan, opts: PlanOptions = {}): El {
   });
   layers.push(...under);
 
-  // ---- items (rugs first)
-  const items = [...plan.items].sort((a, b) => Number(itemType(b) === 'rug') - Number(itemType(a) === 'rug'));
+  // ---- items: rugs first, ceiling lights last (they're overhead)
+  const layerOf = (it: Item) => (itemType(it) === 'rug' ? 0 : itemType(it) === 'light' ? 2 : 1);
+  const items = [...plan.items].sort((a, b) => layerOf(a) - layerOf(b));
   const itemLayer = h('g', {});
   for (const it of items) itemLayer.c.push(drawItem(it));
   for (const g of opts.ghosts ?? []) itemLayer.c.push(drawGhost(g));
@@ -262,6 +263,7 @@ export function renderPlan(plan: Plan, opts: PlanOptions = {}): El {
     });
     const hw = it.w / 2;
     const hd = it.d / 2;
+    if (type === 'light') return drawLight(it, g, st);
     const deco = { fill: inkOn(c1), 'fill-opacity': 0.16, 'pointer-events': 'none' };
     if (it.shape === 'round') {
       g.c.push(h('ellipse', { cx: 0, cy: 0, rx: f2(hw), ry: f2(hd), ...st }));
@@ -316,6 +318,31 @@ export function renderPlan(plan: Plan, opts: PlanOptions = {}): El {
     lg.c.push(h('text', { x: f2(lp[0]), y: f2(ly - lfs * 0.15), 'font-size': f2(lfs), 'text-anchor': 'middle', fill: ink, 'font-weight': 500 }, label));
     lg.c.push(h('text', { x: f2(lp[0]), y: f2(ly + lfs * 1.05), 'font-size': f2(lfs * 0.8), 'text-anchor': 'middle', fill: ink, 'fill-opacity': 0.75 }, `${dimStr(it.w)}×${dimStr(it.d)}${it.est ? ' est' : ''}`));
     return h('g', {}, g, lg);
+  }
+
+  /** A ceiling light seen from below: the shade, its lit inside, and short rays. */
+  function drawLight(it: Item, g: El, st: Attrs): El {
+    const paint = itemPaint(it);
+    const hw = it.w / 2;
+    const hd = it.d / 2;
+    const round = it.shape !== 'rect';
+    const shape = (sx: number, extra: Attrs) =>
+      round
+        ? h('ellipse', { cx: 0, cy: 0, rx: f2(hw * sx), ry: f2(hd * sx), ...extra })
+        : h('rect', { x: f2(-hw * sx), y: f2(-hd * sx), width: f2(it.w * sx), height: f2(it.d * sx), rx: 1, ...extra });
+    // With a solid shade, the second color is the inside of the shade.
+    const inside = hex(!paint.pattern || paint.pattern === 'solid' ? (paint.color2 ?? LIGHT_GLOW) : LIGHT_GLOW);
+    g.c.push(shape(1, { ...st, 'fill-opacity': 0.6 }));
+    g.c.push(shape(0.62, { fill: inside, 'pointer-events': 'none' }));
+    g.c.push(shape(0.32, { fill: '#fffaf0', 'pointer-events': 'none' }));
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4;
+      const [c, sn] = [Math.cos(a), Math.sin(a)];
+      g.c.push(h('line', { x1: f2(c * (hw + 1.5)), y1: f2(sn * (hd + 1.5)), x2: f2(c * (hw + 4.5)), y2: f2(sn * (hd + 4.5)), stroke: th.ink, 'stroke-opacity': 0.5, 'stroke-width': 0.5, 'stroke-linecap': 'round', 'pointer-events': 'none' }));
+    }
+    const lfs = Math.max(2.4, fs * 0.6);
+    const label = h('text', { x: f2(it.x), y: f2(it.y + Math.max(hw, hd) + 4.5 + lfs * 1.1), 'font-size': f2(lfs), 'text-anchor': 'middle', fill: th.ink2, 'pointer-events': 'none' }, it.name || 'Ceiling light');
+    return h('g', {}, g, label);
   }
 
   function dimStr(n: number) {
@@ -400,7 +427,8 @@ export function renderPlan(plan: Plan, opts: PlanOptions = {}): El {
       const depth = ft.kind === 'fireplace' ? Math.max(ft.depth ?? 0, 3) : 3;
       g.c.push(h('rect', { x: f2(a), y: f2(-T - 1), width: f2(ft.w), height: f2(T + 1 + depth), fill: 'transparent', 'data-feat': `${wi}:${k}`, style: 'cursor:grab' }));
     }
-    // Label outside the wall.
+    // Label outside the wall. Art shares the wall with what's under it, so it's labeled only when selected.
+    if (ft.kind === 'art' && !isSel) return g;
     const mid = (a + b) / 2;
     const label = `${ft.label || ft.kind} ${fmtLen(ft.w, units)}`;
     return h('g', {}, g, textAt(wallPoint(f, mid, -T - fs * 0.75), f.u, label, { 'font-size': f2(fs * 0.72), fill: isSel ? th.sel : th.ink2, 'pointer-events': 'none' }));

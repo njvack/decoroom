@@ -1,4 +1,4 @@
-import { featureBottom, featureHeight, itemHeight, itemPaint, itemType } from '../model/defaults';
+import { featureBottom, featureHeight, isOverhead, itemHeight, itemPaint, itemType, LIGHT_GLOW } from '../model/defaults';
 import { wallName } from '../model/estimates';
 import { itemCorners, itemExtent, wallDistance, wallFrame, wallParam } from '../model/geometry';
 import { DEFAULT_CEILING, type Plan, type Units } from '../model/types';
@@ -96,13 +96,31 @@ export function renderElevation(plan: Plan, wi: number, opts: ElevationOptions =
       const ts = itemCorners(it).map((p) => wallParam(f, p));
       return { it, d, t0: Math.max(0, Math.min(...ts)), t1: Math.min(L, Math.max(...ts)) };
     })
-    .filter((x) => x.d <= depth && x.d > -2 && x.t1 > x.t0 + 0.5 && itemType(x.it) !== 'rug')
+    .filter((x) => (x.d <= depth || isOverhead(x.it)) && x.d > -2 && x.t1 > x.t0 + 0.5 && itemType(x.it) !== 'rug')
     .sort((a, b) => b.d - a.d);
   for (const { it, d, t0, t1 } of near) {
     const ih = itemHeight(it);
     const p = itemPaint(it);
     const c1 = hex(p.color ?? '999');
     const op = f2(1 - Math.min(0.45, d / depth / 2));
+    if (isOverhead(it)) {
+      // Hangs from the ceiling: a stem if it drops far, then the shade, lit along the bottom.
+      const body = Math.min(ih, 12);
+      const stem = ih - body;
+      const cx = (t0 + t1) / 2;
+      const inside = hex(!p.pattern || p.pattern === 'solid' ? (p.color2 ?? LIGHT_GLOW) : LIGHT_GLOW);
+      out.push(
+        h(
+          'g',
+          { opacity: op },
+          stem > 0 ? h('line', { x1: f2(cx), y1: 0, x2: f2(cx), y2: f2(stem), stroke: th.ink, 'stroke-width': 0.6 }) : null,
+          h('rect', { x: f2(cx - 3), y: 0, width: 6, height: 1, fill: th.ink }),
+          h('rect', { x: f2(t0), y: f2(stem), width: f2(t1 - t0), height: f2(body), fill: defs.fill(p, c1), stroke: th.ink, 'stroke-width': 0.5, 'stroke-dasharray': it.est ? '2 1.5' : undefined }),
+          h('rect', { x: f2(t0 + 1), y: f2(stem + body - 1.2), width: f2(Math.max(0, t1 - t0 - 2)), height: 1.2, fill: inside }),
+        ),
+      );
+      continue;
+    }
     out.push(
       h(
         'g',

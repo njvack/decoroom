@@ -1,7 +1,7 @@
 /** 3D view, loaded on demand. Ported from the original artifact and generalized to any room shape. */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { featureBottom, featureHeight, itemHeight, itemPaint, itemType } from '../model/defaults';
+import { featureBottom, featureHeight, LIGHT_GLOW, itemHeight, itemPaint, itemType } from '../model/defaults';
 import { bounds, wallFrames } from '../model/geometry';
 import { DEFAULT_CEILING, type Item, type Paint, type Plan, type Sketch } from '../model/types';
 import { h, toSvgString } from '../render/el';
@@ -268,7 +268,7 @@ export function mountThree(el: HTMLElement, plan0: Plan): ThreeView {
       walls.push({ p: new THREE.Vector3(f.a[0] + (f.u[0] * f.len) / 2, H / 2, f.a[1] + (f.u[1] * f.len) / 2), n: new THREE.Vector3(f.n[0], 0, f.n[1]), mats });
     }
 
-    for (const it of plan.items) root.add(itemMesh(it, sk));
+    for (const it of plan.items) root.add(itemMesh(it, sk, H));
 
     if (!placed) {
       placed = true;
@@ -291,7 +291,7 @@ export function mountThree(el: HTMLElement, plan0: Plan): ThreeView {
   };
 }
 
-function itemMesh(it: Item, sk: Sketch[]): THREE.Object3D {
+function itemMesh(it: Item, sk: Sketch[], ceiling: number): THREE.Object3D {
   const ht = itemHeight(it);
   const type = itemType(it);
   const p = itemPaint(it);
@@ -320,6 +320,8 @@ function itemMesh(it: Item, sk: Sketch[]): THREE.Object3D {
     shade.position.y = ht - 5;
     shade.castShadow = true;
     g.add(shade);
+  } else if (type === 'light') {
+    g.add(ceilingLight(it, sk, ceiling));
   } else if (type === 'plant') {
     const pot = new THREE.Mesh(new THREE.CylinderGeometry(it.w * 0.3, it.w * 0.24, Math.min(14, ht * 0.4), 18), mat('#b5654a'));
     pot.position.y = Math.min(14, ht * 0.4) / 2;
@@ -369,5 +371,46 @@ function itemMesh(it: Item, sk: Sketch[]): THREE.Object3D {
   } else {
     g.add(box(it.w, ht, it.d, m, 0, ht / 2, 0));
   }
+  return g;
+}
+
+/** A drum light hanging from the ceiling: canopy, stem if it drops far, shade, glowing diffuser, and a real light. */
+function ceilingLight(it: Item, sk: Sketch[], ceiling: number): THREE.Object3D {
+  const g = new THREE.Group();
+  const p = itemPaint(it);
+  const ht = itemHeight(it);
+  const body = Math.min(ht, 12);
+  const stem = ht - body;
+  const r = it.w / 2;
+  const round = it.shape !== 'rect';
+  const metal = mat('#d0d0d0', { metalness: 0.6, roughness: 0.35 });
+  const canopy = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(3, r * 0.5), Math.min(3, r * 0.5), 1, 16), metal);
+  canopy.position.y = ceiling - 0.5;
+  g.add(canopy);
+  if (stem > 0) {
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, stem, 8), metal);
+    rod.position.y = ceiling - stem / 2;
+    g.add(rod);
+  }
+  const insideHex = hex(!p.pattern || p.pattern === 'solid' ? (p.color2 ?? LIGHT_GLOW) : LIGHT_GLOW);
+  const outer = paintMat(p, LIGHT_GLOW, sk, [Math.PI * it.w, body], { side: THREE.FrontSide, emissive: new THREE.Color(hex(p.color ?? LIGHT_GLOW)), emissiveIntensity: 0.25 });
+  const inner = new THREE.MeshStandardMaterial({ color: insideHex, side: THREE.BackSide, emissive: new THREE.Color(insideHex), emissiveIntensity: 0.6 });
+  const yMid = ceiling - stem - body / 2;
+  const shell = (m: THREE.Material) =>
+    round ? new THREE.Mesh(new THREE.CylinderGeometry(r, r, body, 32, 1, true), m) : new THREE.Mesh(new THREE.BoxGeometry(it.w, body, it.d), m);
+  for (const m of [outer, inner]) {
+    const s = shell(m);
+    s.position.y = yMid;
+    if (round) s.scale.z = it.d / it.w;
+    g.add(s);
+  }
+  const diffuser = new THREE.Mesh(round ? new THREE.CircleGeometry(r * 0.96, 32) : new THREE.PlaneGeometry(it.w * 0.96, it.d * 0.96), new THREE.MeshBasicMaterial({ color: '#fffaf0' }));
+  diffuser.rotation.x = Math.PI / 2;
+  diffuser.position.y = ceiling - stem - body + 0.6;
+  if (round) diffuser.scale.y = it.d / it.w;
+  g.add(diffuser);
+  const bulb = new THREE.PointLight(new THREE.Color(hex(LIGHT_GLOW)), 1.1, 260, 1);
+  bulb.position.y = ceiling - stem - body - 1;
+  g.add(bulb);
   return g;
 }

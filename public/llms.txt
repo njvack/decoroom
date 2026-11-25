@@ -82,9 +82,9 @@ Feature (something on a wall):
 Item:
 - `id`: short stable id (letters, digits, `-`, `_`; up to 12). Keep ids when editing so diffs match pieces.
 - `name` (string)
-- `type`: `box` (default) | `seat` | `table` | `storage` | `bed` | `rug` | `lamp` | `plant`. Sets the default color, height and 3D shape.
+- `type`: `box` (default) | `seat` | `table` | `storage` | `bed` | `rug` | `lamp` | `plant` | `light`. Sets the default color, height and 3D shape. `light` is a ceiling fixture: it hangs from the ceiling, its `h` is how far it drops below the ceiling, it doesn't block floor, and with a solid paint `color2` is the inside of the shade (e.g. gold inside a black drum).
 - `shape`: `rect` (default) | `round` | `L` (sectional; `seatDepth`, `chaiseWidth`, `chaiseSide`: `right` default or `left`)
-- `w`: width along the piece's back; `d`: depth front to back; `h`: height (default by type: seat 32, table 17, storage 36, bed 24, rug 0.5, lamp 60, plant 36, box 24)
+- `w`: width along the piece's back; `d`: depth front to back; `h`: height (default by type: seat 32, table 17, storage 36, bed 24, rug 0.5, lamp 60, plant 36, light 8, box 24)
 - `x`, `y`: center
 - `rot`: degrees clockwise. At 0 the piece's back faces −y (toward the top of the plan); at 90 it faces +x; at 180, +y; at 270, −x.
 - `anchors`: up to 2 of `{"wall": index, "edge": "near"|"center"|"far", "dist": inches}`. "The piece's near (closest) edge / center / far edge is `dist` inches from that wall, measured straight out from the wall." Anchors override `x`/`y`: two anchors on non-parallel walls fix the position. When a wall moves, anchored pieces follow.
@@ -107,7 +107,7 @@ Each object is a JSON array of its fields in this order. A field equal to its de
 plan: [version, name, units(0=absent 1=in 2=cm), ceiling, verts(flat x,y list), walls, floor, items, sketches, notes]
 wall: [name, paint, features, est(0/1)]
 feature: [kind(0=door 1=opening 2=slider 3=window 4=fireplace 5=art), at, w, label, est(0/1), h, y, depth, hinge(0=start 1=end), swing(0=in 1=out), paint]
-item: [id, name, type(0=box 1=seat 2=table 3=storage 4=bed 5=rug 6=lamp 7=plant), shape(0=rect 1=round 2=L), w, d, h, x, y, rot, anchors, paint, est(0/1), radius, seatDepth, chaiseWidth, chaiseSide(0=right 1=left)]
+item: [id, name, type(0=box 1=seat 2=table 3=storage 4=bed 5=rug 6=lamp 7=plant 8=light), shape(0=rect 1=round 2=L), w, d, h, x, y, rot, anchors, paint, est(0/1), radius, seatDepth, chaiseWidth, chaiseSide(0=right 1=left)]
 anchor: [wall, edge(0=near 1=center 2=far), dist]
 paint: [color, pattern(0=solid 1=stripe 2=check 3=plaid 4=herringbone 5=wood 6=dots 7=grid 8=tile 9=brick 10=diamond 11=chevron 12=terrazzo 13=shag 14=boucle 15=floral), color2, scale, angle, sketch(index+1)]
 sketch: [w, h, pal, paths]

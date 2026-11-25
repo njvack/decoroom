@@ -53,7 +53,7 @@ function ItemPanel({ it }: { it: Item }) {
         <Select label="Shape" value={it.shape ?? 'rect'} options={SHAPES.map((t) => [t, t === 'rect' ? 'Rectangle' : t === 'round' ? 'Round' : 'L (sectional)'] as const)} onChange={(v) => up({ shape: v === 'rect' ? undefined : v })} />
         <NumField label="Width" value={it.w} min={1} onChange={(v) => setItem(it.id, (x) => refreshAnchors(plan, { ...x, w: v }), `${it.id}:w`)} />
         <NumField label="Depth" value={it.d} min={1} onChange={(v) => setItem(it.id, (x) => refreshAnchors(plan, { ...x, d: v }), `${it.id}:d`)} />
-        <NumField label="Height" value={itemHeight(it)} min={0} onChange={(v) => up({ h: v }, 'h')} />
+        <NumField label={it.type === 'light' ? 'Hangs below ceiling' : 'Height'} value={itemHeight(it)} min={0} onChange={(v) => up({ h: v }, 'h')} />
         <NumField label="Rotation (°)" raw step={15} value={it.rot ?? 0} onChange={(v) => setItem(it.id, (x) => ({ ...x, rot: ((v % 360) + 360) % 360 || undefined }), `${it.id}:rot`)} />
       </Row>
       {it.shape === 'L' && (

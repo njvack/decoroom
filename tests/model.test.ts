@@ -99,6 +99,16 @@ describe('clearances', () => {
     expect(c.left.to).toBe('hallway');
     expect(c.down.to).toBe('Coffee table');
   });
+
+  it('ignores ceiling lights, which only measure to walls', () => {
+    const plan = structuredClone(FIREPLACE_ROOM);
+    const couch = plan.items.find((i) => i.id === 'milt')!;
+    plan.items.push({ id: 'lite', type: 'light', shape: 'round', w: 18, d: 18, x: couch.x, y: couch.y + 30 });
+    const down = clearances(plan, couch).find((x) => x.dir === 'down')!;
+    expect(down.to).toBe('Coffee table');
+    const light = plan.items.at(-1)!;
+    expect(clearances(plan, light).every((x) => !/couch|table|chair/i.test(x.to))).toBe(true);
+  });
 });
 
 describe('diff', () => {

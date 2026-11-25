@@ -1,0 +1,1 @@
+JetBrainsMono-Regular.ttf is JetBrains Mono, Copyright 2020 JetBrains s.r.o., from https://github.com/JetBrains/JetBrainsMono, distributed under the SIL Open Font License 1.1. The CLI uses it to draw text in PNG output.

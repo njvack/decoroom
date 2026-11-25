@@ -151,7 +151,12 @@ export function mountThree(el: HTMLElement, plan0: Plan): ThreeView {
       const target = outside ? 0.12 : 1;
       for (const m of w.mats) {
         m.opacity += (target - m.opacity) * 0.25;
-        m.transparent = m.opacity < 0.99;
+        const see = m.opacity < 0.99;
+        if (m.transparent !== see) {
+          // An opaque material's shader forces alpha to 1, so switching needs a recompile.
+          m.transparent = see;
+          m.needsUpdate = true;
+        }
         m.depthWrite = m.opacity > 0.5;
       }
     }
@@ -236,10 +241,12 @@ export function mountThree(el: HTMLElement, plan0: Plan): ThreeView {
       for (const ft of w.features ?? []) {
         if (ft.kind === 'fireplace') {
           const br = mat(cssVar('--hearth', '#b9a594'));
+          const fire = mat('#1c1c1c');
+          mats.push(br, fire);
           const fh = featureHeight(ft);
           const c = ft.at + ft.w / 2;
           g.add(box(ft.w, fh, 3, br, c, fh / 2, 1.5));
-          g.add(box(Math.min(ft.w * 0.62, ft.w - 4), Math.min(fh - 8, 30) - 4, 1, mat('#1c1c1c'), c, 4 + (Math.min(fh - 8, 30) - 4) / 2, 3.2));
+          g.add(box(Math.min(ft.w * 0.62, ft.w - 4), Math.min(fh - 8, 30) - 4, 1, fire, c, 4 + (Math.min(fh - 8, 30) - 4) / 2, 3.2));
           g.add(box(ft.w + 6, 2, 6, br, c, fh + 1, 3));
           if (ft.depth && ft.depth > 0) g.add(box(ft.w + 8, 2, ft.depth, br, c, 1, ft.depth / 2));
         }

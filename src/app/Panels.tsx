@@ -211,6 +211,7 @@ export function HelpPanel() {
         A link to this page includes instructions an AI can read. Details for developers and agents are in <a href="llms.txt">llms.txt</a>, and the{' '}
         <a href="https://github.com/njvack/decoroom">source is on GitHub</a>.
       </p>
+      <p class="hint">Version {__BUILD__}</p>
     </div>
   );
 }

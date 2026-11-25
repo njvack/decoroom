@@ -61,7 +61,7 @@ describe('codec', () => {
     const hash = buildHash('frplc1', FIREPLACE_ROOM);
     const url = 'https://njvack.github.io/decoroom/' + hash;
     console.log(`fireplace room link: ${url.length} chars`);
-    expect(url.length).toBeLessThan(900);
+    expect(url.length).toBeLessThan(1400);
   });
 
   it('parses id and reports damage', () => {

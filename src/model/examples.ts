@@ -32,6 +32,8 @@ export const FIREPLACE_ROOM: Plan = normalizePlan({
         { kind: 'opening', at: 165, w: 39, label: 'Hallway' },
         { kind: 'fireplace', at: 105, w: 56, depth: 2, label: 'Fireplace', est: true },
         { kind: 'opening', at: 9, w: 39, label: 'Hallway' },
+        { kind: 'art', at: 106, w: 20, h: 27, y: 54, label: 'Red sun', paint: { sketch: 0 }, est: true },
+        { kind: 'art', at: 127.5, w: 20, h: 27, y: 54, label: 'Orange sun', paint: { sketch: 1 }, est: true },
       ],
     },
   ],
@@ -46,6 +48,37 @@ export const FIREPLACE_ROOM: Plan = normalizePlan({
     { id: 'milt', name: 'Milt couch', type: 'seat', x: 69.5, y: 16.5, w: 74, d: 30, paint: BLACK_LEATHER, anchors: [{ wall: 0, dist: 1.5 }] },
     { id: 'wchr', name: 'Weirder chair', type: 'seat', x: 87, y: 72, w: 28, d: 28, rot: 180, paint: BLACK_LEATHER },
     { id: 'lamp', name: 'Fun lamp', type: 'lamp', shape: 'round', x: 117, y: 8.5, w: 14, d: 14, h: 76 },
+  ],
+  // The two framed prints over the fireplace: black frame, white mat, sun over green peaks.
+  sketches: [
+    {
+      w: 20,
+      h: 27,
+      pal: ['1c1c1c', 'f4f2ec', 'efdcae', 'd2452f', '3f9a72', '226b50', '7cc09a'],
+      paths: [
+        [0, 'M0 0h20v27h-20z'],
+        [1, 'M1.2 1.2h17.6v24.6h-17.6z'],
+        [2, 'M2.5 2.5h15v22h-15z'],
+        [3, 'M6.4 8.5a3.6 3.6 0 1 0 7.2 0a3.6 3.6 0 1 0 -7.2 0z'],
+        [4, 'M2.5 24.5L10 12.5L17.5 24.5z'],
+        [5, 'M2.5 24.5L6 17.5L9.5 24.5zM10.5 24.5L14 17L17.5 24.5z'],
+        [6, 'M6.5 24.5L10 18.5L13.5 24.5zM2.5 24.5L4.25 21L6 24.5zM14 24.5L15.75 21L17.5 24.5z'],
+      ],
+    },
+    {
+      w: 20,
+      h: 27,
+      pal: ['1c1c1c', 'f4f2ec', '2b2a28', 'e07a2c', '3a8a6c', '1f5c49', '6fae8c'],
+      paths: [
+        [0, 'M0 0h20v27h-20z'],
+        [1, 'M1.2 1.2h17.6v24.6h-17.6z'],
+        [2, 'M2.5 2.5h15v22h-15z'],
+        [3, 'M6.4 8.5a3.6 3.6 0 1 0 7.2 0a3.6 3.6 0 1 0 -7.2 0z'],
+        [4, 'M2.5 24.5L10 12.5L17.5 24.5z'],
+        [5, 'M2.5 24.5L6 17.5L9.5 24.5zM10.5 24.5L14 17L17.5 24.5z'],
+        [6, 'M6.5 24.5L10 18.5L13.5 24.5zM2.5 24.5L4.25 21L6 24.5zM14 24.5L15.75 21L17.5 24.5z'],
+      ],
+    },
   ],
   notes: 'Rosewood couch and chair, black leather. Sage walls, honey-oak trim. Grey and cream linoleum.',
 });

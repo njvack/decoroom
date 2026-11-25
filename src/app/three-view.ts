@@ -13,37 +13,54 @@ function cssVar(name: string, fallback: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
-const texCache = new Map<string, THREE.Texture>();
+const texCache = new Map<string, PaintTex>();
+const artCache = new Map<string, THREE.Texture>();
 
-/** A repeating texture for a patterned paint; `span` inches per texture repeat. */
-function paintTexture(p: Paint, sketches: Sketch[], span = 48): THREE.Texture | null {
+interface PaintTex {
+  tex: THREE.Texture;
+  /** Inches covered by one repeat of the texture. */
+  span: [number, number];
+  loaded: boolean;
+  /** Clones made before the image finished drawing; they need a re-upload when it does. */
+  waiting: THREE.Texture[];
+}
+
+/** A repeating texture for a patterned paint. A sketch repeats at its own size, like the plan; other patterns every 48 inches. */
+function paintTexture(p: Paint, sketches: Sketch[]): PaintTex | null {
   if (!p.pattern && p.sketch === undefined) return null;
-  const key = JSON.stringify([p, p.sketch !== undefined ? sketches[p.sketch] : 0, span]);
+  const sk = p.sketch !== undefined ? sketches[p.sketch] : undefined;
+  const key = JSON.stringify([p, sk ?? 0]);
   const hit = texCache.get(key);
   if (hit) return hit;
+  const s = p.scale && p.scale > 0 ? p.scale : 1;
+  const span: [number, number] = sk ? [sk.w * s, sk.h * s] : [48, 48];
+  const px: [number, number] = [256, Math.max(16, Math.round((256 * span[1]) / span[0]))];
   const defs = new PaintDefs(sketches, 't');
   const fill = defs.fill(p, hex(p.color ?? 'cccccc'));
   const svg = toSvgString(
-    h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 256, height: 256, viewBox: `0 0 ${span} ${span}` }, defs.el(), h('rect', { x: 0, y: 0, width: span, height: span, fill })),
+    h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: px[0], height: px[1], viewBox: `0 0 ${span[0]} ${span[1]}` }, defs.el(), h('rect', { x: 0, y: 0, width: span[0], height: span[1], fill })),
   );
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 256;
+  [canvas.width, canvas.height] = px;
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.colorSpace = THREE.SRGBColorSpace;
+  const pt: PaintTex = { tex, span, loaded: false, waiting: [] };
   const img = new Image();
   img.onload = () => {
     canvas.getContext('2d')!.drawImage(img, 0, 0);
-    tex.needsUpdate = true;
+    pt.loaded = true;
+    for (const t of [tex, ...pt.waiting]) t.needsUpdate = true;
+    pt.waiting = [];
   };
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  texCache.set(key, tex);
-  return tex;
+  texCache.set(key, pt);
+  return pt;
 }
 
 function artTexture(sk: Sketch): THREE.Texture {
   const key = 'art' + JSON.stringify(sk);
-  const hit = texCache.get(key);
+  const hit = artCache.get(key);
   if (hit) return hit;
   const svg = toSvgString(h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 256, height: Math.round((256 * sk.h) / sk.w) }, sketchInBox(sk, 0, 0, 256, Math.round((256 * sk.h) / sk.w))));
   const canvas = document.createElement('canvas');
@@ -57,7 +74,7 @@ function artTexture(sk: Sketch): THREE.Texture {
     tex.needsUpdate = true;
   };
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  texCache.set(key, tex);
+  artCache.set(key, tex);
   return tex;
 }
 
@@ -65,14 +82,20 @@ function mat(color: string, extra: THREE.MeshStandardMaterialParameters = {}) {
   return new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.85, metalness: 0, ...extra });
 }
 
-function paintMat(p: Paint | undefined, fallback: string, sketches: Sketch[], repeat: [number, number] = [1, 1], extra: THREE.MeshStandardMaterialParameters = {}) {
+function paintMat(p: Paint | undefined, fallback: string, sketches: Sketch[], size: [number, number] = [1, 1], extra: THREE.MeshStandardMaterialParameters = {}, centered = false) {
   const color = hex(p?.color ?? fallback);
-  const tex = p ? paintTexture(p, sketches) : null;
-  if (!tex) return mat(color, extra);
-  const t = tex.clone();
+  const pt = p ? paintTexture(p, sketches) : null;
+  if (!pt) return mat(color, extra);
+  // Each mesh needs its own repeat, so clone. Clones count their own versions, so one made
+  // before the image has drawn must be told when it has.
+  const t = pt.tex.clone();
   t.needsUpdate = true;
-  t.repeat.set(repeat[0] / 48, repeat[1] / 48);
-  // Clones share the source canvas, so they update when it finishes drawing.
+  if (!pt.loaded) pt.waiting.push(t);
+  const rx = size[0] / pt.span[0];
+  const ry = size[1] / pt.span[1];
+  t.repeat.set(rx, ry);
+  // The plan starts a piece's pattern at its center; do the same here.
+  if (centered) t.offset.set(-rx / 2, -ry / 2);
   return new THREE.MeshStandardMaterial({ map: t, roughness: 0.85, metalness: 0, ...extra });
 }
 
@@ -163,9 +186,9 @@ export function mountThree(el: HTMLElement, plan0: Plan): ThreeView {
     const fg = new THREE.ShapeGeometry(shape);
     const uv = fg.attributes.uv as THREE.BufferAttribute;
     const pos = fg.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / 48, pos.getY(i) / 48);
+    // UVs in inches; paintMat's [1, 1] size then repeats the texture once per pattern span.
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i), pos.getY(i));
     const floorMat = paintMat(plan.floor, 'e4e2dc', sk);
-    if (floorMat.map) floorMat.map.repeat.set(1, 1);
     const floor = new THREE.Mesh(fg, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -265,12 +288,12 @@ function itemMesh(it: Item, sk: Sketch[]): THREE.Object3D {
   const ht = itemHeight(it);
   const type = itemType(it);
   const p = itemPaint(it);
-  const m = paintMat(p, '999999', sk, [it.w, it.d], type === 'storage' ? { roughness: 0.4 } : {});
+  const m = paintMat(p, '999999', sk, [it.w, it.d], type === 'storage' ? { roughness: 0.4 } : {}, true);
   const g = new THREE.Group();
   g.position.set(it.x, 0, it.y);
   g.rotation.y = (-(it.rot ?? 0) * Math.PI) / 180;
   if (type === 'rug') {
-    const r = box(it.w, ht, it.d, paintMat(p, 'b9bdc0', sk, [it.w, it.d], { roughness: 1 }), 0, ht / 2, 0);
+    const r = box(it.w, ht, it.d, paintMat(p, 'b9bdc0', sk, [it.w, it.d], { roughness: 1 }, true), 0, ht / 2, 0);
     r.castShadow = false;
     g.add(r);
   } else if (type === 'lamp') {

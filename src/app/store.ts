@@ -292,16 +292,43 @@ export async function openFromHash(hash: string): Promise<void> {
   await hist.touchRoom(roomId, incoming.name || 'Untitled room');
 }
 
+/** Whether the site now serves a newer build than this page is running. */
+async function newerBuild(): Promise<boolean> {
+  if (__BUILD__ === 'dev') return false;
+  try {
+    const r = await fetch('version.json', { cache: 'no-store' });
+    const v = (await r.json()) as { build?: string };
+    return !!v.build && v.build !== __BUILD__;
+  } catch {
+    return false;
+  }
+}
+
 export function installGlobalSync() {
   addEventListener('hashchange', () => {
     if (location.hash === lastWrittenHash) return;
     // Someone pasted or followed a different link: keep what we had, then open it.
+    // Following a link into an open tab doesn't reload the page, so pick up a new build here.
     clearTimeout(hashTimer);
     const incoming = location.hash;
-    void saveVersion(false).then(() => openFromHash(incoming));
+    void saveVersion(false).then(async () => {
+      if (await newerBuild()) location.reload();
+      else await openFromHash(incoming);
+    });
   });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flush();
+    if (document.visibilityState === 'hidden') {
+      flush();
+      return;
+    }
+    // Back in a tab left open: reload if the site changed meanwhile. The room is in the hash and history.
+    void newerBuild().then(async (newer) => {
+      if (!newer) return;
+      clearTimeout(hashTimer);
+      writeHash();
+      await saveVersion(false);
+      location.reload();
+    });
   });
   addEventListener('pagehide', flush);
 }

@@ -50,7 +50,7 @@ export function SharePanel() {
       <details>
         <summary>For an AI assistant</summary>
         <p class="hint">Paste the regular link into a chat with an AI assistant. The page tells it how to read the room and draw it. If it can't open links, give it this readable version instead.</p>
-        <button class="small" onClick={() => copy(location.href.replace(/#.*$/, '') + buildReadableHash(S.roomId, S.plan), 'Readable link')}>
+        <button class="small" onClick={() => copy(location.origin + location.pathname + buildReadableHash(S.roomId, S.plan), 'Readable link')}>
           Copy readable link
         </button>
       </details>

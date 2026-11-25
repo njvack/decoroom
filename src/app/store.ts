@@ -170,7 +170,7 @@ function writeHash() {
 }
 
 export function currentLink(): string {
-  return location.href.replace(/#.*$/, '') + buildHash(S.roomId, S.plan);
+  return location.origin + location.pathname + buildHash(S.roomId, S.plan);
 }
 
 /** Save a version now. Skips if nothing changed, unless marking it major. */
@@ -304,6 +304,11 @@ async function newerBuild(): Promise<boolean> {
   }
 }
 
+/** Reload past the browser's cached copy of the page (GitHub Pages lets it keep one for 10 minutes). */
+function reloadFresh() {
+  location.replace(`${location.pathname}?v=${Date.now().toString(36)}${location.hash}`);
+}
+
 export function installGlobalSync() {
   addEventListener('hashchange', () => {
     if (location.hash === lastWrittenHash) return;
@@ -312,7 +317,7 @@ export function installGlobalSync() {
     clearTimeout(hashTimer);
     const incoming = location.hash;
     void saveVersion(false).then(async () => {
-      if (await newerBuild()) location.reload();
+      if (await newerBuild()) reloadFresh();
       else await openFromHash(incoming);
     });
   });
@@ -327,7 +332,7 @@ export function installGlobalSync() {
       clearTimeout(hashTimer);
       writeHash();
       await saveVersion(false);
-      location.reload();
+      reloadFresh();
     });
   });
   addEventListener('pagehide', flush);
